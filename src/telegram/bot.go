@@ -37,14 +37,15 @@ func (b *Bot) SendMessage(chatID, message string) error {
 	if strings.TrimSpace(chatID) == "" {
 		return fmt.Errorf("telegram chat id is empty")
 	}
-	if strings.TrimSpace(message) == "" {
+	sanitizedMessage := strings.ToValidUTF8(message, "")
+	if strings.TrimSpace(sanitizedMessage) == "" {
 		return fmt.Errorf("message is empty")
 	}
 
 	apiURL := fmt.Sprintf("%s/bot%s/sendMessage", b.baseURL, b.token)
 	payload := url.Values{}
 	payload.Set("chat_id", chatID)
-	payload.Set("text", message)
+	payload.Set("text", sanitizedMessage)
 
 	resp, err := b.httpClient.PostForm(apiURL, payload)
 	if err != nil {

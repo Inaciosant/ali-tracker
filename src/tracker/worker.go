@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"ali-tracker/src/domain"
 )
@@ -197,10 +198,15 @@ func formatPrice(currency string, value float64) string {
 }
 
 func truncate(value string, max int) string {
-	if max <= 0 || len(value) <= max {
+	if max <= 0 || utf8.RuneCountInString(value) <= max {
 		return value
 	}
-	return strings.TrimSpace(value[:max-3]) + "..."
+	if max <= 3 {
+		return "..."
+	}
+
+	runes := []rune(value)
+	return strings.TrimSpace(string(runes[:max-3])) + "..."
 }
 
 func defaultIfEmpty(value, fallback string) string {
