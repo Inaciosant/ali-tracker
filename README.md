@@ -143,4 +143,5 @@ Confira:
 - `src/domain/product.go`: modelo de produto
 
 ## Licenca
-Voce pode adicionar MIT se quiser publicar como open source.
+Este projeto esta licenciado sob a licenca MIT.  
+Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
