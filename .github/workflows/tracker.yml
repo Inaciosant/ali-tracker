@@ -36,5 +36,6 @@ jobs:
           ALI_CURRENCY: BRL
           ALI_SEARCH_TERMS: kit xeon x99,memoria ram,placa de video
           TRACKER_TOP_N: "5"
+          TRACKER_MIN_DISCOUNT_PERCENT: "0"
           TRACKER_ENABLE_SCHEDULER: "false"
         run: go run ./src

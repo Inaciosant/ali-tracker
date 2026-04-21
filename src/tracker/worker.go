@@ -20,28 +20,40 @@ type Messenger interface {
 }
 
 type Worker struct {
-	finder      ProductFinder
-	bot         Messenger
-	chatID      string
-	topProducts int
-	region      string
-	locale      string
-	currency    string
+	finder             ProductFinder
+	bot                Messenger
+	chatID             string
+	topProducts        int
+	minDiscountPercent float64
+	region             string
+	locale             string
+	currency           string
 }
 
-func NewWorker(finder ProductFinder, bot Messenger, chatID string, topProducts int, region, locale, currency string) *Worker {
+func NewWorker(
+	finder ProductFinder,
+	bot Messenger,
+	chatID string,
+	topProducts int,
+	minDiscountPercent float64,
+	region, locale, currency string,
+) *Worker {
 	if topProducts <= 0 {
 		topProducts = defaultTopProducts
 	}
+	if minDiscountPercent < 0 {
+		minDiscountPercent = 0
+	}
 
 	return &Worker{
-		finder:      finder,
-		bot:         bot,
-		chatID:      strings.TrimSpace(chatID),
-		topProducts: topProducts,
-		region:      defaultIfEmpty(region, "BR"),
-		locale:      defaultIfEmpty(locale, "pt_BR"),
-		currency:    defaultIfEmpty(currency, "BRL"),
+		finder:             finder,
+		bot:                bot,
+		chatID:             strings.TrimSpace(chatID),
+		topProducts:        topProducts,
+		minDiscountPercent: minDiscountPercent,
+		region:             defaultIfEmpty(region, "BR"),
+		locale:             defaultIfEmpty(locale, "pt_BR"),
+		currency:           defaultIfEmpty(currency, "BRL"),
 	}
 }
 
@@ -74,16 +86,25 @@ func (w *Worker) Run(ctx context.Context, keywords []string) error {
 			continue
 		}
 
-		sort.Slice(products, func(i, j int) bool {
-			return products[i].Sales > products[j].Sales
+		filteredProducts := filterByDiscount(products, w.minDiscountPercent)
+		if len(filteredProducts) == 0 {
+			sections = append(
+				sections,
+				fmt.Sprintf("Busca: %s\nNenhuma promocao com desconto minimo de %.1f%%.", keyword, w.minDiscountPercent),
+			)
+			continue
+		}
+
+		sort.Slice(filteredProducts, func(i, j int) bool {
+			return filteredProducts[i].Sales > filteredProducts[j].Sales
 		})
 
 		limit := w.topProducts
-		if len(products) < limit {
-			limit = len(products)
+		if len(filteredProducts) < limit {
+			limit = len(filteredProducts)
 		}
 
-		sections = append(sections, buildSummary(keyword, products[:limit], w.currency))
+		sections = append(sections, buildSummary(keyword, filteredProducts[:limit], w.currency))
 	}
 
 	message := "Resumo de buscas AliExpress :\n\n" + strings.Join(sections, "\n\n")
@@ -101,13 +122,42 @@ func buildSummary(keyword string, products []domain.Product, currency string) st
 		}
 
 		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, truncate(product.Title, 90)))
-		builder.WriteString(fmt.Sprintf("   Preco: %s | Nota: %s | Vendas: %d\n", formatPrice(currency, product.PromotionPrice), rating, product.Sales))
+		discount := discountPercent(product)
+		priceLabel := formatPrice(currency, product.PromotionPrice)
+		if product.OriginalPrice > 0 && product.OriginalPrice > product.PromotionPrice {
+			priceLabel = fmt.Sprintf("%s (antes %s)", formatPrice(currency, product.PromotionPrice), formatPrice(currency, product.OriginalPrice))
+		}
+		builder.WriteString(fmt.Sprintf("   Preco: %s | Desconto: %.1f%% | Nota: %s | Vendas: %d\n", priceLabel, discount, rating, product.Sales))
 		if product.ItemURL != "" {
 			builder.WriteString(fmt.Sprintf("   Link: %s\n", product.ItemURL))
 		}
 	}
 
 	return strings.TrimSpace(builder.String())
+}
+
+func filterByDiscount(products []domain.Product, minDiscount float64) []domain.Product {
+	if minDiscount <= 0 {
+		return products
+	}
+
+	filtered := make([]domain.Product, 0, len(products))
+	for _, product := range products {
+		if discountPercent(product) >= minDiscount {
+			filtered = append(filtered, product)
+		}
+	}
+	return filtered
+}
+
+func discountPercent(product domain.Product) float64 {
+	if product.OriginalPrice <= 0 || product.PromotionPrice <= 0 {
+		return 0
+	}
+	if product.PromotionPrice >= product.OriginalPrice {
+		return 0
+	}
+	return ((product.OriginalPrice - product.PromotionPrice) / product.OriginalPrice) * 100
 }
 
 func normalizeKeywords(values []string) []string {

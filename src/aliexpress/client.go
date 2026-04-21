@@ -150,11 +150,21 @@ func (c *Client) fetchProducts(ctx context.Context, endpoint, keyword string, va
 	products := make([]domain.Product, 0, len(payload.Result.ResultList))
 	for _, entry := range payload.Result.ResultList {
 		item := entry.Item
-		price := 0.0
+		originalPrice := 0.0
+		promotionPrice := 0.0
+		hasPromo := false
+
+		if item.SKU.Def.Price.Valid {
+			originalPrice = item.SKU.Def.Price.Value
+			promotionPrice = originalPrice
+		}
 		if item.SKU.Def.PromotionPrice.Valid {
-			price = item.SKU.Def.PromotionPrice.Value
-		} else if item.SKU.Def.Price.Valid {
-			price = item.SKU.Def.Price.Value
+			promotionPrice = item.SKU.Def.PromotionPrice.Value
+			hasPromo = true
+		}
+
+		if !hasPromo && !item.SKU.Def.Price.Valid {
+			promotionPrice = 0
 		}
 
 		var averageStarRate *float64
@@ -169,7 +179,8 @@ func (c *Client) fetchProducts(ctx context.Context, endpoint, keyword string, va
 			Sales:           item.Sales.Value,
 			ItemURL:         normalizeURL(item.ItemURL),
 			ImageURL:        normalizeURL(item.Image),
-			PromotionPrice:  price,
+			OriginalPrice:   originalPrice,
+			PromotionPrice:  promotionPrice,
 			AverageStarRate: averageStarRate,
 		})
 	}

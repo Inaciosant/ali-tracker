@@ -29,11 +29,12 @@ func main() {
 	locale := envOrDefault("ALI_LOCALE", "pt_BR")
 	currency := envOrDefault("ALI_CURRENCY", "BRL")
 	topN := envIntOrDefault("TRACKER_TOP_N", 5)
+	minDiscountPercent := envFloatOrDefault("TRACKER_MIN_DISCOUNT_PERCENT", 0)
 	keywords := envListOrDefault("ALI_SEARCH_TERMS", []string{"kit xeon x99", "memoria ram", "placa de video"})
 
 	client := aliexpress.NewClient(rapidAPIKey, rapidAPIHost)
 	bot := telegram.NewBot(telegramToken)
-	worker := tracker.NewWorker(client, bot, telegramChatID, topN, region, locale, currency)
+	worker := tracker.NewWorker(client, bot, telegramChatID, topN, minDiscountPercent, region, locale, currency)
 
 	enableScheduler := envBoolOrDefault("TRACKER_ENABLE_SCHEDULER", false)
 	if !enableScheduler {
@@ -157,6 +158,19 @@ func envIntOrDefault(key string, fallback int) int {
 
 	parsed, err := strconv.Atoi(raw)
 	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func envFloatOrDefault(key string, fallback float64) float64 {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.ParseFloat(raw, 64)
+	if err != nil || parsed < 0 {
 		return fallback
 	}
 	return parsed
