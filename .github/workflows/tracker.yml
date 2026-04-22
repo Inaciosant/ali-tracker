@@ -3,11 +3,11 @@ name: Ali Tracker
 on:
   workflow_dispatch:
   schedule:
-    # 09:05, 15:05 e 21:05 em America/Sao_Paulo (UTC-3)
+    # 09:05, 15:05, 21:05 e 22:30 em America/Sao_Paulo (UTC-3)
     - cron: "5 12 * * *"
     - cron: "5 18 * * *"
     - cron: "5 0 * * *"
-    - cron: "5 1 * * *"
+    - cron: "30 1 * * *"
 
 concurrency:
   group: ali-tracker-cron
